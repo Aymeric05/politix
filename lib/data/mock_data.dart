@@ -1,10 +1,28 @@
 import 'package:flutter/material.dart';
 import '../models/political_orientation.dart';
 import '../models/party.dart';
+import '../models/party_representation.dart';
 import '../theme/app_theme.dart';
 
 class MockData {
   static const List<PoliticalOrientation> orientations = [
+    PoliticalOrientation(
+      id: 'extreme-gauche',
+      name: 'Extrême gauche',
+      description: 'Courants anticapitalistes et révolutionnaires',
+      color: AppTheme.extremeGauche,
+      summary:
+      "L'extrême gauche porte une critique radicale du capitalisme et prône une "
+          "transformation profonde, voire révolutionnaire, de la société et de l'économie.",
+      longDescription:
+      "L'extrême gauche regroupe des courants qui portent une critique radicale du système "
+          "capitaliste et prônent une transformation profonde, voire révolutionnaire, de la société "
+          "et de l'économie. On y trouve des traditions marxistes, trotskistes ou anarchistes, qui "
+          "défendent la collectivisation des moyens de production et une rupture nette avec "
+          "l'ordre économique libéral. Le classement précis de certains partis (comme LFI) dans "
+          "cette catégorie ou dans la « gauche radicale » fait débat parmi les politologues.",
+      sources: ['Wikipédia — Extrême gauche', 'CEVIPOF (Sciences Po)'],
+    ),
     PoliticalOrientation(
       id: 'gauche',
       name: 'Gauche',
@@ -24,23 +42,6 @@ class MockData {
       sources: ['Vie-publique.fr', 'Wikipédia — Gauche (politique)'],
     ),
     PoliticalOrientation(
-      id: 'droite',
-      name: 'Droite',
-      description: 'Courants conservateurs et libéraux-conservateurs',
-      color: AppTheme.droite,
-      summary:
-      "La droite privilégie la liberté individuelle et économique, un État plus restreint, "
-          "et une ligne ferme sur l'ordre, la sécurité et l'identité nationale.",
-      longDescription:
-      "La droite regroupe des courants qui privilégient la liberté individuelle et "
-          "économique, un État plus restreint dans l'économie, et l'attachement à l'ordre, à la "
-          "sécurité et aux traditions. Elle défend généralement la baisse des impôts et des "
-          "dépenses publiques, la valorisation du mérite individuel et de l'initiative privée, "
-          "ainsi qu'une ligne plus ferme sur les questions d'immigration et de sécurité que la "
-          "gauche.",
-      sources: ['Vie-publique.fr', 'Wikipédia — Droite (politique)'],
-    ),
-    PoliticalOrientation(
       id: 'centre',
       name: 'Centre',
       description: 'Courants centristes et libéraux',
@@ -57,21 +58,21 @@ class MockData {
       sources: ['Vie-publique.fr', 'Wikipédia — Centrisme'],
     ),
     PoliticalOrientation(
-      id: 'extreme-gauche',
-      name: 'Extrême gauche',
-      description: 'Courants anticapitalistes et révolutionnaires',
-      color: AppTheme.extremeGauche,
+      id: 'droite',
+      name: 'Droite',
+      description: 'Courants conservateurs et libéraux-conservateurs',
+      color: AppTheme.droite,
       summary:
-      "L'extrême gauche porte une critique radicale du capitalisme et prône une "
-          "transformation profonde, voire révolutionnaire, de la société et de l'économie.",
+      "La droite privilégie la liberté individuelle et économique, un État plus restreint, "
+          "et une ligne ferme sur l'ordre, la sécurité et l'identité nationale.",
       longDescription:
-      "L'extrême gauche regroupe des courants qui portent une critique radicale du système "
-          "capitaliste et prônent une transformation profonde, voire révolutionnaire, de la société "
-          "et de l'économie. On y trouve des traditions marxistes, trotskistes ou anarchistes, qui "
-          "défendent la collectivisation des moyens de production et une rupture nette avec "
-          "l'ordre économique libéral. Le classement précis de certains partis (comme LFI) dans "
-          "cette catégorie ou dans la « gauche radicale » fait débat parmi les politologues.",
-      sources: ['Wikipédia — Extrême gauche', 'CEVIPOF (Sciences Po)'],
+      "La droite regroupe des courants qui privilégient la liberté individuelle et "
+          "économique, un État plus restreint dans l'économie, et l'attachement à l'ordre, à la "
+          "sécurité et aux traditions. Elle défend généralement la baisse des impôts et des "
+          "dépenses publiques, la valorisation du mérite individuel et de l'initiative privée, "
+          "ainsi qu'une ligne plus ferme sur les questions d'immigration et de sécurité que la "
+          "gauche.",
+      sources: ['Vie-publique.fr', 'Wikipédia — Droite (politique)'],
     ),
     PoliticalOrientation(
       id: 'extreme-droite',
@@ -114,8 +115,17 @@ class MockData {
       orientationId: 'extreme-gauche',
       shortDescription: 'Mouvement de gauche radicale fondé par Jean-Luc Mélenchon.',
       leader: 'Jean-Luc Mélenchon (fondateur), Manuel Bompard (coordinateur)',
+      leaderImageUrl: 'https://upload.wikimedia.org/wikipedia/commons/8/88/JLM_EP_2016_%28cropped%29.jpg',
       keyFigures: ['Jean-Luc Mélenchon', 'Manuel Bompard', 'Mathilde Panot'],
       foundedYear: '2016',
+      representation: const PartyRepresentation(
+        deputies: 71,
+        senators: 0,
+        euroDeputies: 9,
+        deptPresidents: 0,
+        regPresidents: 0,
+        largeCityMayors: 0,
+      ),
       historySummary:
       "La France insoumise est un mouvement de gauche fondé en 2016 par Jean-Luc Mélenchon. "
           "Il défend une VIe République, une rupture avec le capitalisme financier et une écologie "
@@ -144,8 +154,17 @@ class MockData {
       orientationId: 'gauche',
       shortDescription: 'Parti historique de la gauche française, social-démocrate.',
       leader: 'Olivier Faure',
+      leaderImageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTGqThpJt6rkQSfJLb7CzgwWiWbbVstzHjcnXY0raY-jAXFgsBiB_ROw1lzJ8EmpoYpO_75zcA8w1WtCN1iFdxjKJvwC3mkwaB7HqV2Nope&s=10',
       keyFigures: ['Olivier Faure', 'Raphaël Glucksmann'],
       foundedYear: '1969',
+      representation: const PartyRepresentation(
+        deputies: 66,
+        senators: 64,
+        euroDeputies: 13,
+        deptPresidents: 21,
+        regPresidents: 5,
+        largeCityMayors: 42,
+      ),
       historySummary:
       "Le Parti Socialiste est le parti historique de la gauche de gouvernement en France, "
           "dirigé par Olivier Faure depuis 2018. Après une forte perte d'influence dans les années "
@@ -169,8 +188,17 @@ class MockData {
       orientationId: 'gauche',
       shortDescription: 'Parti écologiste de gauche, ex-Europe Écologie Les Verts.',
       leader: 'Marine Tondelier',
+      leaderImageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSKIqkyTQJuOrGmxOQJpr00z5sJtRz4xqLcQ8FndoU6UA&s=10',
       keyFigures: ['Marine Tondelier'],
       foundedYear: '1984',
+      representation: const PartyRepresentation(
+        deputies: 38,
+        senators: 16,
+        euroDeputies: 5,
+        deptPresidents: 0,
+        regPresidents: 0,
+        largeCityMayors: 9,
+      ),
       historySummary:
       "Les Écologistes (anciennement Europe Écologie Les Verts) portent une écologie "
           "politique de gauche, combinant urgence climatique et justice sociale. Le parti est "
@@ -191,8 +219,17 @@ class MockData {
       orientationId: 'gauche',
       shortDescription: 'Parti historique de la gauche ouvrière et républicaine.',
       leader: 'Fabien Roussel',
+      leaderImageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQOTkIw1dUiXLWksRPzZlJusLjo8OXlUVb2r-rHqSo0KTrH-_KYCM4GleFiookG381IKyYUAPDE1THulTW0w-asrpPMGKsmeLztdTh3SChv&s=10',
       keyFigures: ['Fabien Roussel'],
       foundedYear: '1920',
+      representation: const PartyRepresentation(
+        deputies: 9,
+        senators: 14,
+        euroDeputies: 0,
+        deptPresidents: 0,
+        regPresidents: 0,
+        largeCityMayors: 3,
+      ),
       historySummary:
       "Le PCF est un parti historique de la gauche française, ancré dans la tradition "
           "ouvrière et républicaine. Dirigé par Fabien Roussel, il défend un positionnement "
@@ -215,8 +252,17 @@ class MockData {
       orientationId: 'centre',
       shortDescription: 'Parti centriste fondé par Emmanuel Macron.',
       leader: 'Gabriel Attal',
+      leaderImageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSwK3Av2izSUQRGL3mmRccm8-U_qHJTeTfPIAjuPrpvEWLpOg7WhTzSjBCJnUnKw-15ObqevsGczwv1hO0ieWodsx3e18_EqQSmFwOrK7Cm4Q&s=10',
       keyFigures: ['Emmanuel Macron', 'Gabriel Attal'],
       foundedYear: '2016',
+      representation: const PartyRepresentation(
+        deputies: 99,
+        senators: 24,
+        euroDeputies: 13,
+        deptPresidents: 2,
+        regPresidents: 1,
+        largeCityMayors: 12,
+      ),
       historySummary:
       "Renaissance (ex-La République en Marche) est le parti central de la majorité "
           "présidentielle depuis 2017. Il défend une ligne libérale et pro-européenne, entre "
@@ -237,8 +283,17 @@ class MockData {
       orientationId: 'centre',
       shortDescription: 'Parti centriste et démocrate-chrétien, allié de Renaissance.',
       leader: 'François Bayrou',
+      leaderImageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcThbfiUDhwx3LvtN1YDgFd7rxL4Fq2tbvc4nJYzw9OslA&s',
       keyFigures: ['François Bayrou'],
       foundedYear: '2007',
+      representation: const PartyRepresentation(
+        deputies: 36,
+        senators: 26,
+        euroDeputies: 0,
+        deptPresidents: 1,
+        regPresidents: 0,
+        largeCityMayors: 5,
+      ),
       historySummary:
       "Le Mouvement Démocrate est un parti centriste historique, dirigé par François Bayrou, "
           "allié de la majorité présidentielle depuis 2017.",
@@ -258,8 +313,17 @@ class MockData {
       orientationId: 'droite',
       shortDescription: 'Parti de droite issu du gaullisme et du libéralisme.',
       leader: 'Bruno Retailleau',
+      leaderImageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRlnn2kRIaWsU3UJBgBgXG8dbbwUU3G1JhzGroUhAf99A&s',
       keyFigures: ['Bruno Retailleau', 'Laurent Wauquiez'],
       foundedYear: '2015',
+      representation: const PartyRepresentation(
+        deputies: 47,
+        senators: 132,
+        euroDeputies: 6,
+        deptPresidents: 38,
+        regPresidents: 7,
+        largeCityMayors: 58,
+      ),
       historySummary:
       "Les Républicains sont le principal parti de la droite de gouvernement, héritier du "
           "gaullisme. Le parti défend une ligne conservatrice sur les valeurs et libérale sur "
@@ -280,8 +344,17 @@ class MockData {
       orientationId: 'droite',
       shortDescription: "Parti fondé par Éric Ciotti après sa rupture avec LR.",
       leader: 'Éric Ciotti',
+      leaderImageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQqqx4YCoD0miXAaca_TU-mdcoBS6GcPQHI3u7ygfQTYQ&s=10',
       keyFigures: ['Éric Ciotti'],
       foundedYear: '2024',
+      representation: const PartyRepresentation(
+        deputies: 16,
+        senators: 0,
+        euroDeputies: 0,
+        deptPresidents: 0,
+        regPresidents: 0,
+        largeCityMayors: 0,
+      ),
       historySummary:
       "L'UDR est un parti de droite fondé en 2024 par Éric Ciotti après son exclusion des "
           "Républicains, avec une ligne assumant des alliances avec le Rassemblement National.",
@@ -302,8 +375,17 @@ class MockData {
       orientationId: 'extreme-droite',
       shortDescription: 'Premier parti à l\'Assemblée nationale depuis 2024, ligne nationaliste.',
       leader: 'Jordan Bardella',
+      leaderImageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROt3Eb47oQiDFEJUavIz6YpHw8ef4YETS0pvTJpgQO5Q&s',
       keyFigures: ['Marine Le Pen', 'Jordan Bardella'],
       foundedYear: '1972',
+      representation: const PartyRepresentation(
+        deputies: 126,
+        senators: 3,
+        euroDeputies: 30,
+        deptPresidents: 0,
+        regPresidents: 0,
+        largeCityMayors: 3,
+      ),
       historySummary:
       "Le Rassemblement National, ex-Front National, défend une ligne nationaliste sur "
           "l'immigration et souverainiste sur l'Europe. Il est devenu la première force à "
@@ -326,8 +408,17 @@ class MockData {
       orientationId: 'extreme-droite',
       shortDescription: "Parti nationaliste fondé par Éric Zemmour.",
       leader: 'Éric Zemmour',
+      leaderImageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjBxqwB61-kXbLVdz6I3hxOKuNGTWbxftasNlxSScA5A&s=10',
       keyFigures: ['Éric Zemmour', 'Marion Maréchal'],
       foundedYear: '2021',
+      representation: const PartyRepresentation(
+        deputies: 0,
+        senators: 0,
+        euroDeputies: 1,
+        deptPresidents: 0,
+        regPresidents: 0,
+        largeCityMayors: 0,
+      ),
       historySummary:
       "Reconquête est un parti d'extrême droite fondé par Éric Zemmour en 2021, avec une "
           "ligne axée sur l'identité nationale et une critique radicale de l'immigration.",
@@ -348,8 +439,17 @@ class MockData {
       orientationId: 'sans-etiquette',
       shortDescription: 'Candidats et petites formations sans étiquette nationale.',
       leader: 'Variable selon les candidatures',
+      leaderImageUrl: '',
       keyFigures: ['À compléter'],
       foundedYear: '—',
+      representation: const PartyRepresentation(
+        deputies: 0,
+        senators: 0,
+        euroDeputies: 0,
+        deptPresidents: 0,
+        regPresidents: 0,
+        largeCityMayors: 0,
+      ),
       historySummary:
       "Cette catégorie regroupe les candidats indépendants et petites formations locales ne "
           "se rattachant à aucun des grands partis nationaux.",
