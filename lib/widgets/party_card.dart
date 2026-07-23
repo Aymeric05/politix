@@ -33,6 +33,11 @@ class PartyCard extends StatelessWidget {
       child: ListTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          radius: 24,
+          backgroundImage: NetworkImage(party.leaderImageUrl),
+          backgroundColor: accentColor.withValues(alpha: 0.1),
+        ),
         title: Text(
           party.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5),
