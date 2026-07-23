@@ -42,7 +42,7 @@ class _PartyScreenState extends State<PartyScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _tabLabel('NEWS', 0),
+                  _tabLabel('Actus', 0),
                   const SizedBox(width: 24),
                   _tabLabel('Histoire', 1),
                 ],

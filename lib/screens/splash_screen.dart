@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
-import 'home_screen.dart';
+import 'main_navigation_screen.dart';
 
 // Écran de démarrage : anime le dépliement du mot "POLITIX" à partir du "P"
 class SplashScreen extends StatefulWidget {
@@ -52,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             Navigator.of(context).pushReplacement(
               PageRouteBuilder(
                 transitionDuration: const Duration(milliseconds: 500),
-                pageBuilder: (context, anim, secondaryAnim) => const HomeScreen(),
+                pageBuilder: (context, anim, secondaryAnim) => const MainNavigationScreen(),
                 transitionsBuilder: (context, anim, secondaryAnim, child) =>
                     FadeTransition(opacity: anim, child: child),
               ),
