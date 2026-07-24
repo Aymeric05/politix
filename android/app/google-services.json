@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1083238844569",
+    "project_id": "politix-app-6d070",
+    "storage_bucket": "politix-app-6d070.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1083238844569:android:8af656cf45af963c071008",
+        "android_client_info": {
+          "package_name": "com.aymeric.app_politix"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjPFReIbu6Glo1FRT_PNmJ45hb0bSdzkw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

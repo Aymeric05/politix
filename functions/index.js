@@ -1,4 +1,5 @@
 // functions/index.js
+const AdmZip = require("adm-zip");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
@@ -22,6 +23,17 @@ const PARTIES = [
   { id: "udr", name: "UDR", query: "Éric Ciotti UDR" },
   { id: "reconquete", name: "Reconquête", query: "Reconquête Zemmour" },
 ];
+
+const GROUP_TO_PARTY = {
+  RN: "rn",
+  LFI: "lfi",
+  SOC: "ps",
+  EcoS: "ecologistes",
+  DR: "les-republicains",
+  DEM: "modem",
+  EPR: "renaissance",
+  UDR: "udr",
+};
 
 // ---------- 1. Récupération des actualités via Currents API ----------
 
@@ -71,33 +83,255 @@ exports.fetchPartyNews = onSchedule(
 
 // ---------- 2. Récupération des scrutins/votes via NosDéputés.fr ----------
 exports.fetchVotes = onSchedule(
-  { schedule: "every 24 hours" },
+  {
+    schedule: "every 24 hours",
+    timeoutSeconds: 300,
+    memory: "1GiB",
+  },
   async (event) => {
-    const LEGISLATURE = 17; // ajuste selon la législature en cours
+    const url =
+      "https://data.assemblee-nationale.fr/static/openData/repository/17/loi/scrutins/Scrutins.json.zip";
+    const organesUrl =
+      "https://data.assemblee-nationale.fr/static/openData/repository/17/amo/deputes_actifs_mandats_actifs_organes_divises/AMO40_deputes_actifs_mandats_actifs_organes_divises.json.zip";
+    console.log("[fetchVotes] Téléchargement des scrutins...");
 
-    const scrutinsResponse = await fetch(`https://www.nosdeputes.fr/${LEGISLATURE}/scrutins/json`);
-    const scrutinsData = await scrutinsResponse.json();
+    try {
+      const response = await fetch(url);
 
-    const recentScrutins = (scrutinsData.scrutins || []).slice(0, 10);
+      console.log(`[fetchVotes] HTTP status: ${response.status}`);
 
-    for (const s of recentScrutins) {
-      const scrutin = s.scrutin;
+      if (!response.ok) {
+        throw new Error(
+          `Erreur téléchargement Assemblée nationale: HTTP ${response.status}`
+        );
+      }
 
-      const detailResponse = await fetch(
-        `https://www.nosdeputes.fr/${LEGISLATURE}/scrutin/${scrutin.numero}/json`
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      console.log(
+        `[fetchVotes] Archive téléchargée : ${(buffer.length / 1024 / 1024).toFixed(1)} Mo`
       );
-      const detail = await detailResponse.json();
 
-      await db.collection("votes").doc(`scrutin-${scrutin.numero}`).set({
-        numero: scrutin.numero,
-        titre: scrutin.titre || scrutin.demandeur || "Scrutin sans titre",
-        date: scrutin.date,
-        sort: scrutin.sort,
-        groupes: detail.scrutin?.groupes || {},
-        fetchedAt: admin.firestore.FieldValue.serverTimestamp(),
-      }, { merge: true });
+      const zip = new AdmZip(buffer);
+      console.log("[fetchVotes] Téléchargement des groupes politiques...");
+
+      const organesResponse = await fetch(organesUrl);
+
+      if (!organesResponse.ok) {
+        throw new Error(
+          `Erreur téléchargement organes: HTTP ${organesResponse.status}`
+        );
+      }
+
+      const organesBuffer = Buffer.from(
+        await organesResponse.arrayBuffer()
+      );
+
+      const organesZip = new AdmZip(organesBuffer);
+
+      // Mapping POxxxx → informations du groupe
+      const groupesMap = {};
+
+      for (const entry of organesZip.getEntries()) {
+        if (
+          entry.isDirectory ||
+          !entry.entryName.startsWith("organe/") ||
+          !entry.entryName.endsWith(".json")
+        ) {
+          continue;
+        }
+
+        try {
+          const data = JSON.parse(
+            entry.getData().toString("utf8")
+          );
+
+          const organe = data.organe;
+
+          // GP = Groupe politique
+          if (organe?.codeType === "GP") {
+            groupesMap[organe.uid] = {
+              nom: organe.libelle,
+              abreviation:
+                organe.libelleAbrev ||
+                organe.libelleAbrege ||
+                null,
+            };
+          }
+        } catch (err) {
+          console.error(
+            `[fetchVotes] Erreur organe ${entry.entryName}:`,
+            err.message
+          );
+        }
+      }
+
+      console.log(
+        `[fetchVotes] ${Object.keys(groupesMap).length} groupes politiques trouvés`
+      );
+
+      const jsonEntries = zip
+        .getEntries()
+        .filter(
+          (entry) =>
+            !entry.isDirectory &&
+            entry.entryName.startsWith("json/") &&
+            entry.entryName.endsWith(".json")
+        );
+
+      console.log(
+        `[fetchVotes] ${jsonEntries.length} scrutins trouvés dans l'archive`
+      );
+
+      const parsedScrutins = [];
+
+      for (const entry of jsonEntries) {
+        try {
+          const raw = entry.getData().toString("utf8");
+          const data = JSON.parse(raw);
+
+          if (!data.scrutin) continue;
+
+          parsedScrutins.push(data.scrutin);
+        } catch (err) {
+          console.error(
+            `[fetchVotes] Erreur lecture ${entry.entryName}:`,
+            err.message
+          );
+        }
+      }
+
+      parsedScrutins.sort((a, b) => {
+        const dateComparison =
+          new Date(b.dateScrutin).getTime() -
+          new Date(a.dateScrutin).getTime();
+
+        if (dateComparison !== 0) {
+          return dateComparison;
+        }
+
+        return Number(b.numero) - Number(a.numero);
+      });
+
+      // Pour commencer, on ne stocke que les 20 scrutins les plus récents.
+      const recentScrutins = parsedScrutins.slice(0, 20);
+
+      console.log(
+        `[fetchVotes] ${recentScrutins.length} scrutins récents à enregistrer`
+      );
+
+      for (const scrutin of recentScrutins) {
+        const groupesRaw =
+          scrutin.ventilationVotes?.organe?.groupes?.groupe || [];
+
+        // Selon le JSON, "groupe" peut théoriquement être un objet unique
+        // ou un tableau.
+        const groupesArray = Array.isArray(groupesRaw)
+          ? groupesRaw
+          : [groupesRaw];
+
+        const groupes = groupesArray.map((groupe) => {
+          const voix = groupe.vote?.decompteVoix || {};
+
+          const infosGroupe = groupesMap[groupe.organeRef];
+
+          const abreviation = infosGroupe?.abreviation || null;
+
+          return {
+            organeRef: groupe.organeRef || null,
+
+            nom: infosGroupe?.nom || "Groupe inconnu",
+            abreviation: abreviation,
+
+            partyId: GROUP_TO_PARTY[abreviation] || null,
+
+            nombreMembres: Number(groupe.nombreMembresGroupe || 0),
+
+            positionMajoritaire:
+              groupe.vote?.positionMajoritaire || null,
+
+            pour: Number(voix.pour || 0),
+            contre: Number(voix.contre || 0),
+            abstentions: Number(voix.abstentions || 0),
+            nonVotants: Number(voix.nonVotants || 0),
+            nonVotantsVolontaires: Number(
+              voix.nonVotantsVolontaires || 0
+            ),
+          };
+        });
+
+        const synthese = scrutin.syntheseVote || {};
+        const decompte = synthese.decompte || {};
+
+        const document = {
+          uid: scrutin.uid,
+
+          numero: Number(scrutin.numero),
+
+          legislature: Number(scrutin.legislature),
+
+          date: scrutin.dateScrutin,
+
+          titre:
+            scrutin.titre ||
+            scrutin.objet?.libelle ||
+            "Scrutin sans titre",
+
+          objet: scrutin.objet?.libelle || null,
+
+          dossierLegislatif:
+            scrutin.objet?.dossierLegislatif?.libelle || null,
+
+          dossierRef:
+            scrutin.objet?.dossierLegislatif?.dossierRef || null,
+
+          typeVote:
+            scrutin.typeVote?.libelleTypeVote || null,
+
+          resultat: scrutin.sort?.code || null,
+
+          resultatLibelle: scrutin.sort?.libelle || null,
+
+          synthese: {
+            nombreVotants: Number(synthese.nombreVotants || 0),
+            suffragesExprimes: Number(
+              synthese.suffragesExprimes || 0
+            ),
+            suffragesRequis: Number(
+              synthese.nbrSuffragesRequis || 0
+            ),
+
+            pour: Number(decompte.pour || 0),
+            contre: Number(decompte.contre || 0),
+            abstentions: Number(decompte.abstentions || 0),
+            nonVotants: Number(decompte.nonVotants || 0),
+          },
+
+          groupes,
+
+          source: "Assemblée nationale",
+
+          fetchedAt:
+            admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        await db
+          .collection("votes")
+          .doc(`scrutin-${scrutin.numero}`)
+          .set(document, { merge: true });
+
+        console.log(
+          `[fetchVotes] Scrutin ${scrutin.numero} enregistré (${scrutin.dateScrutin})`
+        );
+      }
+
+      console.log(
+        `[fetchVotes] Terminé : ${recentScrutins.length} scrutins mis à jour`
+      );
+    } catch (err) {
+      console.error("[fetchVotes] ERREUR :", err);
+      throw err;
     }
-
-    console.log(`${recentScrutins.length} scrutins mis à jour.`);
   }
 );

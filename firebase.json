@@ -1,16 +1,1 @@
-{
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "disallowLegacyRuntimeConfig": true,
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
-      ]
-    }
-  ]
-}
+{"functions":[{"source":"functions","codebase":"default","disallowLegacyRuntimeConfig":true,"ignore":["node_modules",".git","firebase-debug.log","firebase-debug.*.log","*.local"]}],"flutter":{"platforms":{"android":{"default":{"projectId":"politix-app-6d070","appId":"1:1083238844569:android:8af656cf45af963c071008","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"politix-app-6d070","configurations":{"android":"1:1083238844569:android:8af656cf45af963c071008","ios":"1:1083238844569:ios:b2254d774b9ba612071008","macos":"1:1083238844569:ios:b2254d774b9ba612071008","web":"1:1083238844569:web:201c505b85a4ee2d071008","windows":"1:1083238844569:web:fc387dfd74fb85db071008"}}}}}}

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/party.dart';
 import '../models/party_representation.dart';
 import '../widgets/edge_swipe_back.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Écran d'un parti politique : trois volets accessibles par swipe horizontal
 // - Page 0 : News (actualités du parti)
@@ -87,33 +88,114 @@ class _PartyScreenState extends State<PartyScreen> {
   }
 }
 
-// --- Onglet NEWS (placeholder pour l'instant) ---
+// --- Onglet NEWS ---
 class _NewsTab extends StatelessWidget {
   final Party party;
   final Color accentColor;
 
-  const _NewsTab({required this.party, required this.accentColor});
+  const _NewsTab({
+    required this.party,
+    required this.accentColor,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.newspaper, size: 48, color: accentColor),
-            const SizedBox(height: 12),
-            Text(
-              "Actualités de ${party.name} — à venir.\n"
-                  "Cette section affichera les news vérifiées, sourcées, "
-                  "avec le nombre de sources croisées pour chaque info.",
-              textAlign: TextAlign.center,
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('news')
+          .where('partyId', isEqualTo: party.id)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Erreur : ${snapshot.error}'),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        final articles = snapshot.data?.docs ?? [];
+
+        articles.sort((a, b) {
+          final dateA = a.data()['publishedAt']?.toString() ?? '';
+          final dateB = b.data()['publishedAt']?.toString() ?? '';
+          return dateB.compareTo(dateA);
+        });
+
+        if (articles.isEmpty) {
+          return Center(
+            child: Text(
+              'Aucune actualité récente concernant ${party.name}.',
               style: TextStyle(color: Colors.grey.shade600),
             ),
-          ],
-        ),
-      ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: articles.length,
+          itemBuilder: (context, index) {
+            final article = articles[index].data();
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: accentColor.withValues(alpha: 0.15),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    article['title'] ?? 'Actualité',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  if ((article['description'] ?? '').isNotEmpty)
+                    Text(
+                      article['description'],
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontSize: 13,
+                      ),
+                    ),
+
+                  const SizedBox(height: 10),
+
+                  Text(
+                    article['sourceName'] ?? 'Source inconnue',
+                    style: TextStyle(
+                      color: accentColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

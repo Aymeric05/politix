@@ -1,49 +1,170 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../data/mock_data.dart';
 
-// Onglet "Lois & votes" : dernières lois et le vote de chaque parti sur ces lois
-// Contenu placeholder pour l'instant, à connecter plus tard à l'open data de l'Assemblée nationale
 class LawsVotesScreen extends StatelessWidget {
   const LawsVotesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 3, // exemples de lois factices
-      itemBuilder: (context, index) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 14),
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('votes')
+          .orderBy('date', descending: true)
+          .limit(20)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Erreur lors du chargement des votes :\n${snapshot.error}',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        final votes = snapshot.data?.docs ?? [];
+
+        if (votes.isEmpty) {
+          return const Center(
+            child: Text('Aucun scrutin disponible.'),
+          );
+        }
+
+        return ListView.builder(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 3)),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Loi à préciser (exemple ${index + 1})', style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: MockData.parties.take(4).map((p) {
-                  return Chip(
-                    label: Text(p.name, style: const TextStyle(fontSize: 11)),
-                    backgroundColor: Colors.grey.shade200,
-                  );
-                }).toList(),
+          itemCount: votes.length,
+          itemBuilder: (context, index) {
+            final data = votes[index].data();
+
+            final groupesRaw = data['groupes'] as List<dynamic>? ?? [];
+
+            final groupes = groupesRaw
+                .whereType<Map<String, dynamic>>()
+                .where((groupe) => groupe['partyId'] != null)
+                .toList();
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Détail des votes par parti à venir (source : data.assemblee-nationale.fr).',
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data['titre'] ?? 'Scrutin',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  Text(
+                    data['date'] ?? '',
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 12,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Text(
+                    data['resultatLibelle'] ?? '',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  ...groupes.map((groupe) {
+                    final nom =
+                        groupe['abreviation'] ??
+                        groupe['nom'] ??
+                        'Groupe';
+
+                    final position =
+                        groupe['positionMajoritaire'] ?? '—';
+
+                    final pour = groupe['pour'] ?? 0;
+                    final contre = groupe['contre'] ?? 0;
+                    final abstentions = groupe['abstentions'] ?? 0;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 55,
+                            child: Text(
+                              nom.toString(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Position majoritaire : $position',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Pour $pour  •  Contre $contre  •  Abst. $abstentions',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    'Source : Assemblée nationale',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade400,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

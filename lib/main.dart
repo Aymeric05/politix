@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const PolitiqueFranceApp());
 }
 
@@ -15,7 +24,7 @@ class PolitiqueFranceApp extends StatelessWidget {
       title: 'Politix',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const SplashScreen(), // écran de démarrage animé, puis redirige vers HomeScreen
+      home: const SplashScreen(),
     );
   }
 }
