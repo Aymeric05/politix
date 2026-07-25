@@ -1,5 +1,7 @@
+import 'package:app_politix/theme/app_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../widgets/hemicycle_visualizer.dart';
 
 class LawsVotesScreen extends StatelessWidget {
   const LawsVotesScreen({super.key});
@@ -51,6 +53,9 @@ class LawsVotesScreen extends StatelessWidget {
                 .whereType<Map<String, dynamic>>()
                 .where((groupe) => groupe['partyId'] != null)
                 .toList();
+            
+            final String resultat = (data['resultatLibelle'] ?? '').toString().toLowerCase();
+            final bool isAdopted = resultat.contains('adopté') || resultat.contains('approuvé') || resultat.contains('accepté');
 
             return Container(
               margin: const EdgeInsets.only(bottom: 14),
@@ -96,7 +101,20 @@ class LawsVotesScreen extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
+                  
+                  // Visualisation graphique de l'hémicycle
+                  HemicycleVisualizer(
+                    groupes: groupes,
+                    isAdopted: isAdopted,
+                  ),
+
+                  const SizedBox(height: 12),
+                  
+                  // Barre de résumé des totaux (Pour / Abst / Contre)
+                  _buildVoteSummaryBar(groupes),
+
+                  const SizedBox(height: 20),
 
                   ...groupes.map((groupe) {
                     final nom =
@@ -110,6 +128,8 @@ class LawsVotesScreen extends StatelessWidget {
                     final pour = groupe['pour'] ?? 0;
                     final contre = groupe['contre'] ?? 0;
                     final abstentions = groupe['abstentions'] ?? 0;
+                    
+                    final Color groupColor = AppTheme.getPartyColor(groupe['partyId']);
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -117,11 +137,23 @@ class LawsVotesScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           SizedBox(
-                            width: 55,
-                            child: Text(
-                              nom.toString(),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                            width: 72,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: groupColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: groupColor.withValues(alpha: 0.3), width: 1),
+                              ),
+                              child: Text(
+                                nom.toString().toUpperCase(),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 10,
+                                  color: groupColor,
+                                  letterSpacing: 0.2,
+                                ),
                               ),
                             ),
                           ),
@@ -167,6 +199,52 @@ class LawsVotesScreen extends StatelessWidget {
           },
         );
       },
+    );
+  }
+
+  Widget _buildVoteSummaryBar(List<Map<String, dynamic>> groupes) {
+    int totalPour = 0;
+    int totalContre = 0;
+    int totalAbst = 0;
+
+    for (var g in groupes) {
+      totalPour += (g['pour'] ?? 0) as int;
+      totalContre += (g['contre'] ?? 0) as int;
+      totalAbst += (g['abstentions'] ?? 0) as int;
+    }
+
+    return Row(
+      children: [
+        _summarySection('POUR', totalPour, AppTheme.votePour),
+        const SizedBox(width: 8),
+        _summarySection('ABST.', totalAbst, AppTheme.voteAbstention),
+        const SizedBox(width: 8),
+        _summarySection('CONTRE', totalContre, AppTheme.voteContre),
+      ],
+    );
+  }
+
+  Widget _summarySection(String label, int count, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+            ),
+            Text(
+              count.toString(),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
