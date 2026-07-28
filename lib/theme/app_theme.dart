@@ -60,9 +60,12 @@ class AppTheme {
     );
   }
 
-  static Color getPartyColor(String? partyId) {
-    switch (partyId?.toLowerCase()) {
+  static Color getPartyColor(String? partyId, {String? abbreviation}) {
+    String key = (partyId ?? abbreviation ?? '').toLowerCase();
+    
+    switch (key) {
       case 'lfi':
+      case 'lfi-nfp':
         return colorLFI;
       case 'gdr':
         return colorGDR;
@@ -89,9 +92,10 @@ class AppTheme {
       case 'rn':
         return colorRN;
       case 'udr':
+      case 'uddplr':
         return colorUDR;
       case 'ni':
-      case 'sans-etiquette':
+      case 'non inscrit':
         return colorNI;
       case 'extreme-gauche':
         return extremeGauche;
