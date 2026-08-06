@@ -30,24 +30,19 @@ class HemicycleVisualizer extends StatelessWidget {
                 painter: _HemicyclePainter(groupes: groupes),
               ),
             ),
+            // Symbole central de résultat (Style minimaliste)
             if (isAdopted != null)
               Positioned(
-                bottom: 5,
+                bottom: 8,
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: Colors.white.withValues(alpha: 0.9),
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 8,
-                      )
-                    ],
                   ),
                   child: Icon(
                     isAdopted! ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                    size: width * 0.16,
+                    size: width * 0.15,
                     color: isAdopted! ? AppTheme.votePour : AppTheme.voteContre,
                   ),
                 ),
@@ -66,82 +61,83 @@ class _HemicyclePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const int totalSeatsToDraw = 577;
+    const int totalSeats = 577;
     const int rows = 11;
     final double centerX = size.width / 2;
     final double centerY = size.height * 0.98;
-    final double maxRadius = size.width / 2 * 0.95;
-    final double minRadius = maxRadius * 0.38;
-    final double seatSize = size.width / 78;
+    final double maxRadius = size.width / 2 * 0.92;
+    final double minRadius = maxRadius * 0.4;
+    final double seatSize = size.width / 82;
 
     // 1. Calculer les couleurs exactes pour les 577 sièges
     List<Color> allSeatsColors = _generateFixedSeatsColors();
     
-    // 2. Calculer les positions avec des allées parfaitement symétriques
+    // 2. Calculer les positions sans allées, parfaitement équilibrées
     List<_SeatPos> positions = [];
     
-    // On définit un nombre de colonnes fixe pour le calcul de l'angle
-    const int cols = 56; 
-    // Indices des allées (symétriques par rapport au centre 28)
-    final List<int> aisles = [6, 14, 21, 28, 35, 42, 50]; 
+    // Distribution des 577 sièges sur les 11 rangées
+    List<int> seatsPerRow = _calculateSeatsPerRow(totalSeats, rows);
+    
+    const double baseAngleRange = math.pi * 0.98; // Éventail large mais pas plat
 
     for (int r = 0; r < rows; r++) {
       double radius = minRadius + (maxRadius - minRadius) * (r / (rows - 1));
+      int count = seatsPerRow[r];
       
-      for (int c = 0; c < cols; c++) {
-        double aisleOffset = 0;
-        for (var aisle in aisles) {
-          if (c >= aisle) aisleOffset += 0.07; 
-        }
-
-        // Angle calculé pour être parfaitement symétrique
-        // Range total approx pi + aisleOffsets
-        double totalAisleOffset = aisles.length * 0.07;
-        double baseAngleRange = math.pi * 0.88; // Réduit pour laisser place aux allées
+      // On centre chaque rangée individuellement autour de 1.5 * pi
+      double startAngle = (1.5 * math.pi) - (baseAngleRange / 2);
+      
+      for (int s = 0; s < count; s++) {
+        double angle = startAngle + (baseAngleRange * (s / (count - 1)));
         
-        // On centre l'arc sur 1.5 * pi
-        double startAngle = (1.5 * math.pi) - (baseAngleRange + totalAisleOffset) / 2;
-        double angle = startAngle + (baseAngleRange * (c / (cols - 1))) + aisleOffset;
-
         double x = centerX + radius * math.cos(angle);
         double y = centerY + radius * math.sin(angle);
         positions.add(_SeatPos(Offset(x, y), angle));
       }
     }
 
-    // On trie par angle (gauche -> droite) pour le mapping avec les blocs politiques
+    // On trie par angle (gauche -> droite) pour faire correspondre aux blocs politiques
     positions.sort((a, b) => a.angle.compareTo(b.angle));
 
-    // Dessin des 577 premiers sièges calculés
-    for (int i = 0; i < totalSeatsToDraw; i++) {
+    // Dessin
+    for (int i = 0; i < totalSeats; i++) {
       if (i >= positions.length || i >= allSeatsColors.length) break;
       
       final Color color = allSeatsColors[i];
       final pos = positions[i];
 
       final Rect rect = Rect.fromCenter(center: pos.offset, width: seatSize, height: seatSize);
-      final RRect rrect = RRect.fromRectAndRadius(rect, Radius.circular(seatSize * 0.3));
+      final RRect rrect = RRect.fromRectAndRadius(rect, Radius.circular(seatSize * 0.35));
 
       canvas.drawRRect(rrect, Paint()..color = color..style = PaintingStyle.fill);
-      
-      // Structure ultra légère
-      canvas.drawRRect(
-        rrect,
-        Paint()
-          ..color = Colors.black.withValues(alpha: 0.03)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.5,
-      );
     }
+  }
+
+  List<int> _calculateSeatsPerRow(int total, int rowsCount) {
+    List<int> result = [];
+    int remaining = total;
+    double totalWeight = 0;
+    // Poids basé sur le périmètre (proportionnel au rayon)
+    for (int i = 0; i < rowsCount; i++) {
+      totalWeight += (0.4 + (0.6 * i / (rowsCount - 1)));
+    }
+
+    for (int i = 0; i < rowsCount - 1; i++) {
+      double weight = (0.4 + (0.6 * i / (rowsCount - 1)));
+      int count = (total * weight / totalWeight).round();
+      result.add(count);
+      remaining -= count;
+    }
+    result.add(remaining);
+    return result;
   }
 
   List<Color> _generateFixedSeatsColors() {
     List<Color> colors = [];
     
-    // Répartition stricte (Total = 577)
     final List<_GroupDef> partyBlocks = [
       _GroupDef('gdr', 17),
-      _GroupDef('lfi', 71),
+      _GroupDef('lfi-nfp', 71),
       _GroupDef('ecos', 38),
       _GroupDef('soc', 66),
       _GroupDef('liot', 23),
@@ -156,7 +152,7 @@ class _HemicyclePainter extends CustomPainter {
     ];
 
     final Map<String, Map<String, dynamic>> votesMap = {
-      for (var g in groupes) (g['partyId'] ?? '').toString().toLowerCase(): g
+      for (var g in groupes) (g['partyId'] ?? g['abreviation'] ?? '').toString().toLowerCase(): g
     };
 
     for (var def in partyBlocks) {
@@ -172,26 +168,29 @@ class _HemicyclePainter extends CustomPainter {
         abst = (vote['abstentions'] ?? 0) as int;
       }
 
-      // Respect strict du nombre de sièges du groupe
       int totalVoted = pour + contre + abst;
       int absents = math.max(0, def.seats - totalVoted);
 
-      // On remplit le bloc. Pour le RN (id='rn'), on veut s'assurer que ses 123 sièges
-      // reflètent bien ses votes. L'ordre interne : Pour, Contre, Abst, Absent.
       for (int i = 0; i < pour; i++) colors.add(AppTheme.votePour);
       for (int i = 0; i < contre; i++) colors.add(AppTheme.voteContre);
       for (int i = 0; i < abst; i++) colors.add(AppTheme.voteAbstention);
       for (int i = 0; i < absents; i++) colors.add(AppTheme.voteAbsent);
     }
 
+    // On s'assure d'avoir exactement 577 couleurs
+    if (colors.length > 577) return colors.sublist(0, 577);
+    while (colors.length < 577) colors.add(AppTheme.voteAbsent);
+    
     return colors;
   }
 
   String _normalizeId(String id) {
-    if (id == 'lfi') return 'lfi-nfp';
-    if (id == 'dem') return 'modem';
-    if (id == 'epr') return 'ensemble';
+    if (id == 'lfi-nfp') return 'lfi';
+    if (id == 'soc') return 'ps';
+    if (id == 'epr') return 'renaissance';
     if (id == 'dr') return 'les-republicains';
+    if (id == 'dem') return 'modem';
+    if (id == 'udr') return 'uddplr';
     return id;
   }
 
