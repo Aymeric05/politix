@@ -121,9 +121,24 @@ class _NewsTab extends StatelessWidget {
         final articles = snapshot.data?.docs ?? [];
 
         articles.sort((a, b) {
-          final dateA = a.data()['publishedAt']?.toString() ?? '';
-          final dateB = b.data()['publishedAt']?.toString() ?? '';
-          return dateB.compareTo(dateA);
+          final valA = a.data()['publishedAt'];
+          final valB = b.data()['publishedAt'];
+
+          DateTime dateTimeA;
+          if (valA is Timestamp) {
+            dateTimeA = valA.toDate();
+          } else {
+            dateTimeA = DateTime.tryParse(valA?.toString() ?? '') ?? DateTime(1970);
+          }
+
+          DateTime dateTimeB;
+          if (valB is Timestamp) {
+            dateTimeB = valB.toDate();
+          } else {
+            dateTimeB = DateTime.tryParse(valB?.toString() ?? '') ?? DateTime(1970);
+          }
+
+          return dateTimeB.compareTo(dateTimeA);
         });
 
         if (articles.isEmpty) {
