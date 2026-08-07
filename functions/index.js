@@ -399,7 +399,7 @@ exports.buildNewsClusters = onSchedule(
       for (let j = i + 1; j < articles.length; j++) {
         if (used.has(articles[j].id)) continue;
         const candidateWords = significantWords(articles[j].title);
-        if (similarity(baseWords, candidateWords) >= 0.4) {
+        if (similarity(baseWords, candidateWords) >= 0.2) {
           group.push(articles[j]);
           used.add(articles[j].id);
         }
