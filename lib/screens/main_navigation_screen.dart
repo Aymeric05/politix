@@ -5,6 +5,7 @@ import 'news_feed_screen.dart';
 import 'orientations_tab.dart';
 import 'laws_votes_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/ad_banner_widget.dart';
 
 // Écran principal de l'app : 3 volets accessibles par swipe horizontal
 // Page 0 : Actus (toutes les news mélangées)
@@ -66,13 +67,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
         ],
       ),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (page) => setState(() => _currentPage = page),
-        children: const [
-          NewsFeedScreen(),
-          OrientationsTab(),
-          LawsVotesScreen(),
+      body: Column(
+        children: [
+          const AdBannerWidget(),
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (page) => setState(() => _currentPage = page),
+              children: const [
+                NewsFeedScreen(),
+                OrientationsTab(),
+                LawsVotesScreen(),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: SafeArea(
