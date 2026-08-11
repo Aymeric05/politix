@@ -3,6 +3,9 @@ import '../models/party.dart';
 import '../models/party_representation.dart';
 import '../widgets/edge_swipe_back.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../widgets/news_webview.dart';
 
 // Écran d'un parti politique : trois volets accessibles par swipe horizontal
 // - Page 0 : News (actualités du parti)
@@ -98,6 +101,79 @@ class _NewsTab extends StatelessWidget {
     required this.accentColor,
   });
 
+  // Ouvre le lien (WebView sur mobile, Navigateur sur Web)
+  void _openNews(BuildContext context, String url, String title) async {
+    if (kIsWeb) {
+      final Uri uri = Uri.parse(url);
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch $url');
+      }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NewsWebView(url: url, title: title),
+        ),
+      );
+    }
+  }
+
+  // Affiche la liste des sources dans une feuille modale
+  void _showSourcesDialog(BuildContext context, List sources, String newsTitle) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Sources de cette actualité',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 12),
+              ...sources.map((s) {
+                final source = s as Map<String, dynamic>;
+                return InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (source['url'] != null) {
+                      _openNews(
+                          context, source['url'], source['name'] ?? newsTitle);
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.article_outlined,
+                            size: 20, color: Colors.indigo),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            source['name'] ?? 'Source inconnue',
+                            style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.indigo,
+                                decoration: TextDecoration.underline),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -155,57 +231,84 @@ class _NewsTab extends StatelessWidget {
           itemCount: articles.length,
           itemBuilder: (context, index) {
             final article = articles[index].data();
+            final String? url = article['url'] as String?;
+            final String sourceName = article['sourceName'] ?? 'Source inconnue';
+            
+            // Pour l'onglet parti, on a une seule source par carte
+            final sources = [{'name': sourceName, 'url': url}];
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: accentColor.withValues(alpha: 0.15),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+            return GestureDetector(
+              onTap: () {
+                if (url != null) {
+                  _openNews(context, url, article['title'] ?? 'Actualité');
+                }
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: accentColor.withValues(alpha: 0.15),
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    article['title'] ?? 'Actualité',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  if ((article['description'] ?? '').isNotEmpty)
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      article['description'],
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontSize: 13,
+                      article['title'] ?? 'Actualité',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
                       ),
                     ),
-
-                  const SizedBox(height: 10),
-
-                  Text(
-                    article['sourceName'] ?? 'Source inconnue',
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(height: 8),
+                    if ((article['description'] ?? '').isNotEmpty)
+                      Text(
+                        article['description'],
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        // Rendre le texte cliquable pour afficher la source
+                        GestureDetector(
+                          onTap: () => _showSourcesDialog(
+                              context, sources, article['title'] ?? ''),
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.star, size: 15, color: Colors.amber),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '1 source',
+                                  style: TextStyle(
+                                    fontSize: 11.5, 
+                                    color: accentColor,
+                                    fontWeight: FontWeight.bold,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },

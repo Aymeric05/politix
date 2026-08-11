@@ -62,12 +62,25 @@ exports.fetchPartyNews = onSchedule(
 
       try {
         const response = await fetch(url);
-        console.log(`[DEBUG] ${party.id} - HTTP status: ${response.status}`);
 
+        // La plupart des APIs modernes utilisent l'UTF-8.
+        // Si des caractères comme "SÃ©bastien" apparaissent, c'est que l'encodage est mal interprété.
         const rawText = await response.text();
-        console.log(`[DEBUG] ${party.id} - Réponse brute: ${rawText.slice(0, 500)}`);
 
-        const data = JSON.parse(rawText);
+        // Nettoyage manuel des caractères corrompus les plus fréquents si nécessaire
+        const cleanText = rawText
+          .replace(/Ã©/g, "é")
+          .replace(/Ã /g, "à")
+          .replace(/Ã¨/g, "è")
+          .replace(/Ã¹/g, "ù")
+          .replace(/Ã»/g, "û")
+          .replace(/Ãª/g, "ê")
+          .replace(/Ã®/g, "î")
+          .replace(/Ã´/g, "ô")
+          .replace(/â\u0080\u0099/g, "'")
+          .replace(/â\u0080\u00a6/g, "...");
+
+        const data = JSON.parse(cleanText);
 
         if (data.status !== "ok") {
           console.error(`Erreur Currents API pour ${party.id}:`, JSON.stringify(data));
