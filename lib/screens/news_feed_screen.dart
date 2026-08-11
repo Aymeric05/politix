@@ -1,10 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../widgets/news_webview.dart';
 
 // Onglet "Actus" : flux d'actualités regroupées par sujet, triées par popularité
 // (nombre de sources différentes qui en parlent), alimenté par buildNewsClusters
 class NewsFeedScreen extends StatelessWidget {
   const NewsFeedScreen({super.key});
+
+  // Ouvre le lien (WebView sur mobile, Navigateur sur Web)
+  void _openNews(BuildContext context, String url, String title) async {
+    if (kIsWeb) {
+      final Uri uri = Uri.parse(url);
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch $url');
+      }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NewsWebView(url: url, title: title),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,52 +83,65 @@ class NewsFeedScreen extends StatelessWidget {
             final data = sortedDocs[index].data() as Map<String, dynamic>;
             final sourceCount = (data['sourceCount'] as num?)?.toInt() ?? 1;
             final sources = (data['sources'] as List?) ?? [];
+            final String? mainUrl = sources.isNotEmpty ? (sources[0]['url'] as String?) : null;
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 3)),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(data['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  const SizedBox(height: 6),
-                  Text(data['description'] ?? '', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      // Étoiles = nombre de sources (plafonné à 5 pour l'affichage)
-                      Row(
-                        children: List.generate(
-                          sourceCount.clamp(1, 5),
-                              (i) => const Icon(Icons.star, size: 15, color: Colors.amber),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text('$sourceCount source${sourceCount > 1 ? 's' : ''}',
-                          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500)),
-                      const Spacer(),
-                      // Bouton info : ouvre la liste des sources
-                      GestureDetector(
-                        onTap: () => _showSourcesDialog(context, sources),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.indigo.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
+            return GestureDetector(
+              onTap: () {
+                if (mainUrl != null) {
+                  _openNews(context, mainUrl, data['title'] ?? 'Actualité');
+                }
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 3)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(data['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const SizedBox(height: 6),
+                    Text(data['description'] ?? '', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        // Rendre le nombre de sources cliquable pour afficher le détail
+                        GestureDetector(
+                          onTap: () => _showSourcesDialog(context, sources, data['title'] ?? ''),
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: Row(
+                              children: [
+                                // Étoiles = nombre de sources (plafonné à 5 pour l'affichage)
+                                Row(
+                                  children: List.generate(
+                                    sourceCount.clamp(1, 5),
+                                    (i) => const Icon(Icons.star, size: 15, color: Colors.amber),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '$sourceCount source${sourceCount > 1 ? 's' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 11.5, 
+                                    color: Colors.indigo,
+                                    fontWeight: FontWeight.bold,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: const Icon(Icons.info_outline, size: 16, color: Colors.indigo),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -118,7 +151,7 @@ class NewsFeedScreen extends StatelessWidget {
   }
 
   // Affiche la liste des sources dans une feuille modale
-  void _showSourcesDialog(BuildContext context, List sources) {
+  void _showSourcesDialog(BuildContext context, List sources, String newsTitle) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -135,9 +168,28 @@ class NewsFeedScreen extends StatelessWidget {
               const SizedBox(height: 12),
               ...sources.map((s) {
                 final source = s as Map<String, dynamic>;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Text('• ${source['name'] ?? 'Source inconnue'}', style: const TextStyle(fontSize: 14)),
+                return InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (source['url'] != null) {
+                      _openNews(context, source['url'], source['name'] ?? newsTitle);
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.article_outlined, size: 20, color: Colors.indigo),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            source['name'] ?? 'Source inconnue',
+                            style: const TextStyle(fontSize: 14, color: Colors.indigo, decoration: TextDecoration.underline),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               }),
               const SizedBox(height: 8),
