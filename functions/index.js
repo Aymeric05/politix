@@ -1,5 +1,6 @@
 // functions/index.js
 const AdmZip = require("adm-zip");
+const crypto = require("crypto");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
@@ -12,17 +13,31 @@ const db = admin.firestore();
 const currentsApiKey = defineSecret("CURRENTS_API_KEY");
 
 const PARTIES = [
-  { id: "rn", name: "Rassemblement National", query: "Rassemblement National" },
-  { id: "renaissance", name: "Renaissance", query: "Renaissance Macron parti" },
-  { id: "les-republicains", name: "Les Républicains", query: "Les Républicains parti" },
-  { id: "lfi", name: "La France insoumise", query: "La France insoumise" },
-  { id: "ps", name: "Parti Socialiste", query: "Parti Socialiste France" },
-  { id: "ecologistes", name: "Les Écologistes", query: "Europe Écologie Les Verts" },
-  { id: "pcf", name: "Parti Communiste Français", query: "Parti Communiste Français" },
-  { id: "modem", name: "MoDem", query: "MoDem Bayrou" },
-  { id: "udr", name: "UDR", query: "Éric Ciotti UDR" },
-  { id: "reconquete", name: "Reconquête", query: "Reconquête Zemmour" },
+  { id: "rn", name: "Rassemblement National", query: "Rassemblement National", matchTerms: ["rassemblement national", " rn "] },
+  { id: "renaissance", name: "Renaissance", query: "Renaissance Macron parti", matchTerms: ["renaissance"] },
+  { id: "les-republicains", name: "Les Républicains", query: "Les Républicains parti", matchTerms: ["les républicains", " lr "] },
+  { id: "lfi", name: "La France insoumise", query: "La France insoumise", matchTerms: ["france insoumise", " lfi "] },
+  { id: "ps", name: "Parti Socialiste", query: "Parti Socialiste France", matchTerms: ["parti socialiste", " ps "] },
+  { id: "ecologistes", name: "Les Écologistes", query: "Europe Écologie Les Verts", matchTerms: ["écologistes", "eelv", "europe écologie"] },
+  { id: "pcf", name: "Parti Communiste Français", query: "Parti Communiste Français", matchTerms: ["parti communiste", " pcf "] },
+  { id: "modem", name: "MoDem", query: "MoDem Bayrou", matchTerms: ["modem", "mouvement démocrate"] },
+  { id: "udr", name: "UDR", query: "Éric Ciotti UDR", matchTerms: [" udr ", "éric ciotti"] },
+  { id: "reconquete", name: "Reconquête", query: "Reconquête Zemmour", matchTerms: ["reconquête"] },
 ];
+
+// Normalise un texte : minuscules, sans accents, entouré d'espaces pour matcher les mots isolés
+function normalize(text) {
+  return " " + text
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    + " ";
+}
+
+// Vérifie que l'article parle bien du parti (titre OU description contient un des termes)
+function isRelevantToParty(article, party) {
+  const haystack = normalize((article.title || "") + " " + (article.description || ""));
+  return party.matchTerms.some((term) => haystack.includes(normalize(term).trim()));
+}
 
 const GROUP_TO_PARTY = {
   RN: "rn",
@@ -60,7 +75,11 @@ exports.fetchPartyNews = onSchedule(
         }
 
         for (const article of data.news) {
-          const docId = Buffer.from(article.url).toString("base64").slice(0, 100);
+          // Ne garde que les articles réellement pertinents pour ce parti
+          if (!isRelevantToParty(article, party)) continue;
+
+          // Utilise un hash MD5 pour l'ID du document afin d'éviter les caractères interdits
+          const docId = crypto.createHash("md5").update(article.url).digest("hex");
 
           await db.collection("news").doc(docId).set({
             partyId: party.id,
@@ -68,7 +87,8 @@ exports.fetchPartyNews = onSchedule(
             description: article.description || "",
             url: article.url,
             sourceName: article.author || "Source inconnue",
-            publishedAt: article.published,
+            // On stocke une vraie date (Timestamp) pour faciliter les requêtes Firestore
+            publishedAt: article.published ? new Date(article.published) : new Date(),
             fetchedAt: admin.firestore.FieldValue.serverTimestamp(),
           }, { merge: true });
         }
@@ -333,5 +353,92 @@ exports.fetchVotes = onSchedule(
       console.error("[fetchVotes] ERREUR :", err);
       throw err;
     }
+  }
+);
+
+// ---------- 3. Regroupement des news par sujet (pour le système d'étoiles) ----------
+
+// Découpe un titre en mots significatifs (ignore les mots courts/accents)
+function significantWords(title) {
+  return normalize(title)
+    .replace(/[^a-z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter((w) => w.length > 3);
+}
+
+// Similarité de Jaccard entre deux listes de mots (0 = rien en commun, 1 = identique)
+function similarity(wordsA, wordsB) {
+  const setA = new Set(wordsA);
+  const setB = new Set(wordsB);
+  const intersection = [...setA].filter((w) => setB.has(w));
+  const union = new Set([...setA, ...setB]);
+  return union.size === 0 ? 0 : intersection.length / union.size;
+}
+
+exports.buildNewsClusters = onSchedule(
+  { schedule: "every 6 hours" },
+  async (event) => {
+    // Récupère les news des 3 derniers jours pour comparaison
+    // On utilise un objet Date car on stocke maintenant des Timestamps dans "news"
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const snapshot = await db.collection("news")
+      .where("publishedAt", ">=", threeDaysAgo)
+      .get();
+
+    const articles = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const used = new Set();
+    const clusters = [];
+
+    for (let i = 0; i < articles.length; i++) {
+      if (used.has(articles[i].id)) continue;
+      const base = articles[i];
+      const baseWords = significantWords(base.title);
+      const group = [base];
+      used.add(base.id);
+
+      for (let j = i + 1; j < articles.length; j++) {
+        if (used.has(articles[j].id)) continue;
+        const candidateWords = significantWords(articles[j].title);
+        if (similarity(baseWords, candidateWords) >= 0.2) {
+          group.push(articles[j]);
+          used.add(articles[j].id);
+        }
+      }
+      clusters.push(group);
+    }
+
+    // Écrit chaque groupe dans Firestore, avec le nombre de sources uniques
+    for (const group of clusters) {
+      // Dédupliquer par source (un même journal ne compte qu'une fois)
+      const uniqueSources = [];
+      const seenSources = new Set();
+      for (const article of group) {
+        if (!seenSources.has(article.sourceName)) {
+          seenSources.add(article.sourceName);
+          uniqueSources.push({
+            name: article.sourceName,
+            url: article.url,
+          });
+        }
+      }
+
+      // Prend la description la plus longue comme description principale
+      const mainArticle = group.reduce((a, b) =>
+        (b.description?.length || 0) > (a.description?.length || 0) ? b : a
+      );
+
+      const clusterId = crypto.createHash("md5").update(mainArticle.url).digest("hex");
+
+      await db.collection("newsClusters").doc(clusterId).set({
+        title: mainArticle.title,
+        description: mainArticle.description,
+        publishedAt: mainArticle.publishedAt,
+        sourceCount: uniqueSources.length,
+        sources: uniqueSources,
+        fetchedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+
+    console.log(`${clusters.length} sujets regroupés depuis ${articles.length} articles.`);
   }
 );
