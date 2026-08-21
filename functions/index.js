@@ -1,3 +1,9 @@
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { CloudBillingClient } = require("@google-cloud/billing");
+const billing = new CloudBillingClient();
+
+
+
 // functions/index.js
 const AdmZip = require("adm-zip");
 const crypto = require("crypto");
@@ -453,5 +459,36 @@ exports.buildNewsClusters = onSchedule(
     }
 
     console.log(`${clusters.length} sujets regroupés depuis ${articles.length} articles.`);
+  }
+);
+
+exports.stopBillingOnBudgetExceeded = onMessagePublished(
+  { topic: "budget-alerts" },
+  async (event) => {
+    const pubsubData = JSON.parse(
+      Buffer.from(event.data.message.data, "base64").toString()
+    );
+
+    console.log(`Coût actuel: ${pubsubData.costAmount}€, budget: ${pubsubData.budgetAmount}€`);
+
+    if (pubsubData.costAmount <= pubsubData.budgetAmount) {
+      console.log("Sous le budget, rien à faire.");
+      return;
+    }
+
+    const projectName = `projects/${process.env.GCLOUD_PROJECT}`;
+    const billingInfo = await billing.getProjectBillingInfo({ name: projectName });
+
+    if (!billingInfo[0].billingEnabled) {
+      console.log("Facturation déjà désactivée.");
+      return;
+    }
+
+    await billing.updateProjectBillingInfo({
+      name: projectName,
+      projectBillingInfo: { billingAccountName: "" },
+    });
+
+    console.log("⚠️ BUDGET DÉPASSÉ : facturation désactivée automatiquement. Tous les services Firebase sont maintenant coupés.");
   }
 );
